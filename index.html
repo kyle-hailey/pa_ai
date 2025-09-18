@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Chat Demo (Preloaded)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app">
+      <header class="app-header">
+        <div class="brand">Yugabyte Performance Advisor</div>
+        <div class="controls">
+          <button id="btn-prev" title="Previous (⌫)">Prev</button>
+          <button id="btn-next" class="primary" title="Next (⏎ or Space)">Next</button>
+          <button id="btn-reset" title="Reset (R)">Reset</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <section class="pa-panel">
+          <div class="pa-title">Performance Advisor</div>
+          <div class="pa-subtle">Cluster load, anomalies with drilldown, and top queries.</div>
+          <div id="pa-image-wrap" class="pa-image-wrap" style="display:none;margin-top:10px;">
+            <img id="pa-image" alt="Cluster Load Overview" />
+          </div>
+          <div class="pa-grid" id="pa-widgets" style="margin-top:10px;">
+            <div class="pa-section">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div><strong>Cluster Load</strong></div>
+                <div class="pa-legend"><span class="dot dot-load"></span>CPU% <span class="dot dot-anom"></span>Anomaly</div>
+              </div>
+              <canvas id="chart-load" height="120"></canvas>
+            </div>
+            <div class="pa-section">
+              <div><strong>Anomalies (Gantt)</strong> <span class="pa-subtle">Click a bar to drill down</span></div>
+              <div class="gantt" id="gantt"></div>
+              <div id="drilldown" class="drilldown" style="display:none;"></div>
+            </div>
+            <div class="pa-section">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <strong>Top Queries</strong>
+                <button id="btn-report" class="primary" style="padding:6px 10px;font-size:12px;">Show Example Report</button>
+              </div>
+              <table class="table" id="tbl-queries"></table>
+            </div>
+          </div>
+        </section>
+
+        <section class="chat-panel" id="chat-panel">
+          <div class="chat-header">
+            <img src="assets/ai_icon.png" alt="AI" class="chat-header-icon" />
+            <div class="chat-header-title">Performance Advisor AI agent</div>
+          </div>
+          <main class="chat" id="chat" aria-live="polite"></main>
+          <form id="composer" class="composer">
+            <input id="message" type="text" placeholder="how large is my database and what are my tables ?" autocomplete="off" />
+            <button id="btn-send" type="submit" class="primary">Send</button>
+          </form>
+        </section>
+      </section>
+
+      
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
+

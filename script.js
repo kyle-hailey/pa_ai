@@ -3,7 +3,7 @@
 const conversationSteps = [
   {
     messages: [
-      { role: 'assistant', text: "Hello! I'm your Performance Advisor assistant. I can help you analyze database performance, identify bottlenecks, and recommend optimizations to keep your YugabyteDB clusters running smoothly. Let's dig in and make your system faster and more efficient!" },
+      { role: 'assistant', text: "Hello! I'm your Performance Advisor assistant. I can help you analyze database performance, identify bottlenecks, and recommend optimizations to keep your YugabyteDB clusters running smoothly. Let's dig in and make your system faster and more efficient!\n\nHere’s what I can do:\n- Identify Issues – Detect anomalies, locking problems, or slowdowns.\n- Analyze Queries – Find your most expensive queries and suggest optimizations.\n- Recommend Fixes – Provide steps to resolve performance bottlenecks.\n- Explain Trends – Help you understand why performance changed over time." },
     ]
   },
   {
@@ -26,7 +26,7 @@ const conversationSteps = [
   },
   {
     messages: [
-      { role: 'user', text: 'What do you recommend to reduce that load?' },
+      { role: 'user', text: 'Are there any queries that need tuning' },
       { role: 'assistant', text: 'Optimization details below.' },
     ]
   },
@@ -62,7 +62,7 @@ function createRow(role, text) {
   avatar.className = 'avatar';
   if (role === 'assistant') {
     const img = document.createElement('img');
-    img.src = 'assets/yugabyte_icon.jpg';
+    img.src = 'assets/ai_icon.png';
     img.alt = 'AI';
     img.className = 'avatar-img';
     avatar.appendChild(img);
@@ -92,7 +92,7 @@ function createRow(role, text) {
 }
 
 // Type out text into a new bubble for the given role, character by character
-async function typeOut(role, text, charDelayMs = 18) {
+async function typeOut(role, text, charDelayMs = 60) {
   const row = document.createElement('div');
   row.className = `row ${role}`;
 
@@ -100,7 +100,7 @@ async function typeOut(role, text, charDelayMs = 18) {
   avatar.className = 'avatar';
   if (role === 'assistant') {
     const img = document.createElement('img');
-    img.src = 'assets/yugabyte_icon.jpg';
+    img.src = 'assets/ai_icon.png';
     img.alt = 'AI';
     img.className = 'avatar-img';
     avatar.appendChild(img);
@@ -142,7 +142,9 @@ async function typeOut(role, text, charDelayMs = 18) {
   // typing animation
   for (let i = 1; i <= text.length; i++) {
     bubble.innerText = text.slice(0, i);
-    await new Promise(r => setTimeout(r, charDelayMs));
+    const ch = text[i - 1];
+    const delay = (ch === ' ' || ch === '\n' || ch === '\t') ? charDelayMs * 2 : charDelayMs;
+    await new Promise(r => setTimeout(r, delay));
     scrollToBottom();
   }
 
@@ -153,12 +155,14 @@ async function typeOut(role, text, charDelayMs = 18) {
 }
 
 // Simulate typing into the bottom composer input, then render the user bubble instantly
-async function simulateComposerTyping(text, charDelayMs = 16) {
+async function simulateComposerTyping(text, charDelayMs = 50) {
   if (!input) return null;
   input.value = '';
   for (let i = 1; i <= text.length; i++) {
     input.value = text.slice(0, i);
-    await new Promise(r => setTimeout(r, charDelayMs));
+    const ch = text[i - 1];
+    const delay = (ch === ' ' || ch === '\n' || ch === '\t') ? charDelayMs * 2 : charDelayMs; // 50ms letters, 100ms spaces
+    await new Promise(r => setTimeout(r, delay));
   }
   const node = createRow('user', text);
   chatEl.appendChild(node);
@@ -176,9 +180,19 @@ function renderTyping(role) {
   row.className = `row ${role}`;
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
-  avatar.textContent = role === 'assistant' ? 'A' : 'U';
+  if (role === 'assistant') {
+    const img = document.createElement('img');
+    img.src = 'assets/ai_icon.png';
+    img.alt = 'AI';
+    img.className = 'avatar-img';
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = 'U';
+  }
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
+  // Show explicit thinking prompt text
+  bubble.textContent = 'Thinking ... ';
   const span = document.createElement('span');
   span.className = 'typing';
   bubble.appendChild(span);
@@ -199,11 +213,47 @@ async function playStep(step) {
   const nodesForThisStep = [];
   for (const msg of step.messages) {
     if (msg.role === 'assistant') {
-      const typing = renderTyping('assistant');
-      await new Promise(r => setTimeout(r, Math.min(1200, 300 + (msg.text.length * 8))));
-      chatEl.removeChild(typing);
-      // Render findings-style block for the first overview answer
-      if (step === conversationSteps[1]) {
+      // Formatted introduction with bold bullets (no thinking delay)
+      if (step === conversationSteps[0]) {
+        const wrap = document.createElement('div');
+        wrap.className = 'row assistant';
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        const img = document.createElement('img');
+        img.src = 'assets/ai_icon.png';
+        img.alt = 'AI';
+        img.className = 'avatar-img';
+        avatar.appendChild(img);
+        const col = document.createElement('div');
+        col.style.maxWidth = 'min(75ch, 100%)';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = `
+          <div>
+            <div>Hello! I'm your Performance Advisor assistant. I can help you analyze database performance, identify bottlenecks, and recommend optimizations to keep your YugabyteDB clusters running smoothly. Let's dig in and make your system faster and more efficient!</div>
+            <div style="margin-top:8px; font-weight:600;">Here’s what I can do:</div>
+            <ul style="margin:6px 0 0 18px; padding:0;">
+              <li><strong>Identify Issues</strong> — Detect anomalies, locking problems, or slowdowns.</li>
+              <li><strong>Analyze Queries</strong> — Find your most expensive queries and suggest optimizations.</li>
+              <li><strong>Recommend Fixes</strong> — Provide steps to resolve performance bottlenecks.</li>
+              <li><strong>Explain Trends</strong> — Help you understand why performance changed over time.</li>
+            </ul>
+          </div>`;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        col.appendChild(bubble);
+        col.appendChild(meta);
+        wrap.appendChild(avatar);
+        wrap.appendChild(col);
+        chatEl.appendChild(wrap);
+        nodesForThisStep.push(wrap);
+        scrollToBottom();
+      // Render findings-style block for the first overview answer (with delay)
+      } else if (step === conversationSteps[1]) {
+        const typing = renderTyping('assistant');
+        await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
+        chatEl.removeChild(typing);
         // Switch image to highlighted version when answering overview
         if (paImage) paImage.src = 'assets/pa_example_highlighted.png';
         const wrap = document.createElement('div');
@@ -211,7 +261,7 @@ async function playStep(step) {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         const img = document.createElement('img');
-        img.src = 'assets/yugabyte_icon.jpg';
+        img.src = 'assets/ai_icon.png';
         img.alt = 'AI';
         img.className = 'avatar-img';
         avatar.appendChild(img);
@@ -229,7 +279,8 @@ async function playStep(step) {
             <div class="section-title">Top Findings</div>
             <div class="block-imp">
               <div class="mini-title">Important — Locking Issues</div>
-              <div>The following query is responsible for over 50% of total lock wait time:</div>
+              <div>The following query spends over 50% of its time waiting for locks and is responsible for the majority of total lock wait time on the cluster:</div>
+              <div>The following query spends over 50% of its time waiting for locks and is responsible for the majority of total lock wait time on the cluster:</div>
               <pre><code>INSERT INTO test_table (k, v, t)
 SELECT max(k) + $1 AS k, max(v) + $2 AS v, now() AS t
 FROM test_table;</code></pre>
@@ -244,8 +295,8 @@ FROM test_table;</code></pre>
             <div class="section-title">Next Steps</div>
             <div class="block-imp">
               <div><strong>Issue Detected:</strong> Lock Contention</div>
-              <div>Locking is the primary performance bottleneck in your cluster, representing the majority of time spent running queries. We’ve highlighted the contention areas in the Cluster Load chart to the left on the Perf Advisor dashboard.</div>
-              <div><strong>Solution:</strong> Commit immediately after the insert.</div>
+              <div>Locking is the primary performance bottleneck in your cluster, representing the majority of time spent running queries. The contention area is highlighted in the Cluster Load chart to the left on the Perf Advisor dashboard.</div>
+              <div><strong>Solution:</strong> Commit immediately after the insert, as the current insert is part of a transaction that delays the commit. Committing immediately after the insert reduces lock wait time. Expected improvement: reduce query latency by about 50%.</div>
               <div class="mini-title">Insert statement</div>
               <pre><code>INSERT INTO test_table (k, v, t)
 SELECT max(k) + $1 AS k, max(v) + $2 AS v, now() AS t
@@ -263,12 +314,17 @@ FROM test_table;</code></pre>
         nodesForThisStep.push(wrap);
         scrollToBottom();
       } else if (step === conversationSteps[2]) {
+        const typing = renderTyping('assistant');
+        await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
+        chatEl.removeChild(typing);
+        // Switch image to anomalies view when answering anomalies question
+        if (paImage) paImage.src = 'assets/pa_example_anomalies.png';
         const wrap = document.createElement('div');
         wrap.className = 'row assistant';
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         const img = document.createElement('img');
-        img.src = 'assets/yugabyte_icon.jpg';
+        img.src = 'assets/ai_icon.png';
         img.alt = 'AI';
         img.className = 'avatar-img';
         avatar.appendChild(img);
@@ -297,6 +353,8 @@ from test_table</code></pre>
                 <li><strong>Over 50% of processing time</strong> for a handful of one‑off DDL statements.</li>
                 <li>Impact is low since these are infrequent. If they are run often, pre‑cache table metadata with <code>ysql_catalog_preload_additional_table_list</code>.</li>
               </ul>
+              <div>Catalog read waits can be avoided by pre-caching the table metadata with the gflag:</div>
+              <pre><code>ysql_catalog_preload_additional_table_list="test_table, test,pgbench_history"</code></pre>
             </div>
           </div>`;
         const meta = document.createElement('div');
@@ -310,6 +368,9 @@ from test_table</code></pre>
         nodesForThisStep.push(wrap);
         scrollToBottom();
       } else if (step === conversationSteps[3]) {
+        const typing = renderTyping('assistant');
+        await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
+        chatEl.removeChild(typing);
         // Switch image to queries view when discussing top queries
         if (paImage) paImage.src = 'assets/pa_example_queries.png';
         const wrap = document.createElement('div');
@@ -330,13 +391,13 @@ from test_table</code></pre>
             <div class="section-title">Top Queries</div>
             <div>Top queries are listed below by total execution time. Look at the <strong>Queries</strong> tab below the Cluster Load chart to the left.</div>
 
-            <div class="block-min">
+            <div class="block-imp">
               <div class="mini-title">Locking — INSERT into test_table</div>
               <pre><code>insert into test_table (k, v, t)
 select max(k) + $1 as k, max(v) + $2 as v, now() as t
 from test_table</code></pre>
               <ul style="margin: 6px 0 0 18px;">
-                <li>This statement is responsible for <strong>over 50% of lock wait time</strong>.</li>
+                <li>The majority of active cluster load was spent waiting for locks. This statement is responsible the majority of lock wait time and spends over 50% of its execution time waiting for locks.</li>
                 <li><strong>Resolution:</strong> commit immediately after the insert.</li>
               </ul>
             </div>
@@ -348,6 +409,16 @@ from test_table</code></pre>
                 <li>Represents <strong>over 50% of CPU time</strong> for the period.</li>
                 <li>Overall OS CPU utilization remains <strong>under 30%</strong>, so system-wide CPU is not a concern.</li>
               </ul>
+            </div>
+            <div class="block-min">
+              <div class="mini-title">Catalog Read</div>
+              <div>The following DDL queries spend more than 50% of time on catalog read</div>
+              <pre><code>CREATE TABLE test_table(k i...
+DROP TABLE IF EXISTS test.i...
+DROP TABLE IF EXISTS test.t...
+TRUNCATE pgbench_history;</code></pre>
+              <div>Catalog read waits can be avoided by pre-caching the table metadata with the gflag:</div>
+              <pre><code>ysql_catalog_preload_additional_table_list="test_table, test,pgbench_histoy"</code></pre>
             </div>
           </div>`;
         const meta = document.createElement('div');
@@ -361,6 +432,9 @@ from test_table</code></pre>
         nodesForThisStep.push(wrap);
         scrollToBottom();
       } else if (step === conversationSteps[4]) {
+        const typing = renderTyping('assistant');
+        await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
+        chatEl.removeChild(typing);
         const wrap = document.createElement('div');
         wrap.className = 'row assistant';
         const avatar = document.createElement('div');
@@ -385,17 +459,17 @@ ORDER BY abalance DESC
 LIMIT $4</code></pre>
 
             <div class="section-title">Explanation</div>
-            <div>The query performs a sequential scan on the <code>pgbench_accounts</code> table because there is no suitable index to satisfy the range condition on the <code>aid</code> column. In YugabyteDB, primary keys are HASH partitioned by default. A HASH index is efficient for point lookups (e.g., <code>WHERE aid = ?</code>) but does not store data in a sorted order. Consequently, to find all rows where <code>aid</code> is within a specific range, the database must scan all rows and apply the filter, which is inefficient.</div>
+            <div>The query performs a sequential scan on the <code>pgbench_accounts</code> table because there is no suitable index to satisfy the range condition <code>aid BETWEEN $1 AND $2 + $3</code>. In YugabyteDB, primary keys are HASH partitioned by default. A HASH index is efficient for point lookups (e.g., <code>WHERE aid = ?</code>) but does not store data in a sorted order. Consequently, to find all rows where <code>aid BETWEEN $1 AND $2 + $3</code>, the database must scan all rows and apply the filter, which is inefficient.</div>
 
             <div class="section-title">Recommended Index Strategy</div>
-            <div>Assuming <code>aid</code> is the primary key, you have two options to resolve the sequential scan:</div>
+            <div>Since the primary key is <code>aid</code>, you have two options to resolve the sequential scan:</div>
             <div class="block-min">
               <div class="mini-title">1) Recommended — Create a secondary RANGE index</div>
               <div>This is often the safest option as it does not change the table's primary key partitioning, preserving distribution for writes and point-reads on the primary key. This new index will be used to optimize range queries on <code>aid</code>.</div>
               <pre><code>CREATE INDEX pgbench_accounts_aid_idx ON pgbench_accounts (aid ASC);</code></pre>
             </div>
             <div class="block-min">
-              <div class="mini-title">2) Recreate the table with a RANGE partitioned primary key</div>
+              <div class="mini-title">2) Alternatively recreate the table with a RANGE partitioned primary key</div>
               <div>If range queries on <code>aid</code> are the most frequent and critical access pattern, change the primary key to be RANGE partitioned. This makes range scans fastest but may introduce write hotspots if inserts use monotonically increasing <code>aid</code> values.</div>
               <pre><code>-- This requires dropping and recreating the table.
 CREATE TABLE pgbench_accounts (
@@ -424,8 +498,8 @@ CREATE TABLE pgbench_accounts (
         scrollToBottom();
       }
     } else if (msg.role === 'user') {
-      // Show typing inside the bottom input, then render the message
-      const node = await simulateComposerTyping(msg.text, 16);
+      // Show typing inside the bottom input, then render the message (use default slow rate)
+      const node = await simulateComposerTyping(msg.text);
       nodesForThisStep.push(node);
     } else {
       const node = createRow(msg.role, msg.text);
@@ -468,8 +542,11 @@ function updateButtons() {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  const ae = document.activeElement;
+  const isTyping = ae && ((ae.tagName === 'INPUT') || (ae.tagName === 'TEXTAREA') || ae.isContentEditable);
+  if (isTyping) return; // don't hijack keys while user is typing in the composer
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); next(); }
-  else if (e.key === 'Backspace') { e.preventDefault(); prev(); }
+  else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); prev(); }
   else if (e.key.toLowerCase() === 'r') { e.preventDefault(); reset(); }
 });
 
@@ -611,12 +688,19 @@ if (composer) {
     e.preventDefault();
     const text = (input && input.value || '').trim();
     if (!text) return;
-    await typeOut('user', text, 16);
+    await typeOut('user', text, 50);
     input.value = '';
     scrollToBottom();
     const reply = createRow('assistant', 'Thanks! I will analyze those details and update the insights.');
     chatEl.appendChild(reply);
     scrollToBottom();
+  });
+  // Allow pressing Enter in the empty composer to advance the scripted demo
+  input && input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const hasText = (input.value || '').trim().length > 0;
+      if (!hasText) { e.preventDefault(); next(); }
+    }
   });
 }
 

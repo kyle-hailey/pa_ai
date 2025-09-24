@@ -13,14 +13,12 @@
     <div class="app">
       <header class="app-header">
         <div class="brand">Yugabyte Performance Advisor</div>
-        <div class="controls">
-          <button id="btn-prev" title="Previous (⌫)">Prev</button>
-          <button id="btn-next" class="primary" title="Next (⏎ or Space)">Next</button>
-          <button id="btn-reset" title="Reset (R)">Reset</button>
+        <div class="header-actions">
+          <button id="btn-ask-ai" class="ask-ai">Ask AI</button>
         </div>
       </header>
 
-      <section class="layout">
+      <section class="layout one-column" id="layout">
         <section class="pa-panel">
           <div class="pa-title">Performance Advisor</div>
           <div class="pa-subtle">Cluster load, anomalies with drilldown, and top queries.</div>
@@ -50,7 +48,7 @@
           </div>
         </section>
 
-        <section class="chat-panel" id="chat-panel">
+        <section class="chat-panel hidden" id="chat-panel">
           <div class="chat-header">
             <img src="assets/ai_icon.png" alt="AI" class="chat-header-icon" />
             <div class="chat-header-title">Performance Advisor AI agent</div>

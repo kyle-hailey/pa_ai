@@ -8,20 +8,19 @@ const conversationSteps = [
   },
   {
     messages: [
-      { role: 'user', text: 'Can you give me a quick overview of cluster load?' },
-      { role: 'assistant', text: 'Here is the current view of cluster activity. Highlights indicate issue windows. See summary below.' },
+      { role: 'user', text: 'What are the red spikes in the performance advisor console ?' },
+      { role: 'assistant', text: 'Locking contention details below.' },
     ]
   },
   {
     messages: [
-      { role: 'user', text: 'Any anomalies in the last hour?' },
-      { role: 'assistant', text: 'Yes — there were two anomalies during this period.\n\n1) Lock Contention (Primary)\n   - Affected query:\n     insert into test_table (k, v, t) select max(k) + $1 as k, max(v) + $2 as v, now() as t from test_table\n   - This statement is responsible for over 50% of lock wait time.\n   - Resolution: commit immediately after the insert to release the lock sooner.\n\n2) Catalog Read waits (Secondary)\n   - Over 50% of processing time for a handful of one‑off DDL statements.\n   - Impact is low since these are not frequent. If these DDLs are often run, pre‑cache table metadata with ysql_catalog_preload_additional_table_list.' },
+      { role: 'user', text: 'What other issues are there  in the cluster load other than the locking issue?' },
+      { role: 'assistant', text: 'There are 3 other minor issues.' },
     ]
   },
   {
     messages: [
-      { role: 'user', text: 'Which queries contributed most to those spikes?' },
-      { role: 'assistant', text: 'Top queries are listed below by total execution time. Look at the Queries tab below the Cluster Load chart to the left. The range predicate on pgbench_accounts dominates during those intervals. The top query of import is: insert into test_table (k, v, t) select max(k) + $1 as k, max(v) + $2 as v, now() as t from test_table — it is running into locking issues that will be solved by committing immediately after the insert.\n\nAnother notable query is: SELECT sum(A.id) FROM A JOIN B ON A.category = B.filter_category — it represents over 50% of the CPU time on the cluster, though overall OS CPU utilization is not a concern, remaining under 30%.' },
+      
     ]
   },
   {
@@ -34,9 +33,9 @@ const conversationSteps = [
 
 // DOM helpers
 const chatEl = document.getElementById('chat');
-const btnNext = document.getElementById('btn-next');
-const btnPrev = document.getElementById('btn-prev');
-const btnReset = document.getElementById('btn-reset');
+const btnNext = null;
+const btnPrev = null;
+const btnReset = null;
 const chartCanvas = document.getElementById('chart-load');
 const ganttEl = document.getElementById('gantt');
 const drilldownEl = document.getElementById('drilldown');
@@ -50,6 +49,8 @@ const paWidgets = document.getElementById('pa-widgets');
 const chatPanel = document.getElementById('chat-panel');
 const paPanel = document.querySelector('.pa-panel');
 const chatHeader = document.querySelector('.chat-header');
+const btnAskAI = document.getElementById('btn-ask-ai');
+const layout = document.getElementById('layout');
 
 let currentStepIndex = -1;
 let history = []; // keep track of rendered nodes for undo
@@ -62,7 +63,7 @@ function createRow(role, text) {
   avatar.className = 'avatar';
   if (role === 'assistant') {
     const img = document.createElement('img');
-    img.src = 'assets/ai_icon.png';
+    img.src = 'assets/yugabyte_icon.jpg';
     img.alt = 'AI';
     img.className = 'avatar-img';
     avatar.appendChild(img);
@@ -100,7 +101,7 @@ async function typeOut(role, text, charDelayMs = 60) {
   avatar.className = 'avatar';
   if (role === 'assistant') {
     const img = document.createElement('img');
-    img.src = 'assets/ai_icon.png';
+    img.src = 'assets/yugabyte_icon.jpg';
     img.alt = 'AI';
     img.className = 'avatar-img';
     avatar.appendChild(img);
@@ -182,7 +183,7 @@ function renderTyping(role) {
   avatar.className = 'avatar';
   if (role === 'assistant') {
     const img = document.createElement('img');
-    img.src = 'assets/ai_icon.png';
+    img.src = 'assets/yugabyte_icon.jpg';
     img.alt = 'AI';
     img.className = 'avatar-img';
     avatar.appendChild(img);
@@ -220,7 +221,7 @@ async function playStep(step) {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         const img = document.createElement('img');
-        img.src = 'assets/ai_icon.png';
+        img.src = 'assets/yugabyte_icon.jpg';
         img.alt = 'AI';
         img.className = 'avatar-img';
         avatar.appendChild(img);
@@ -254,14 +255,14 @@ async function playStep(step) {
         const typing = renderTyping('assistant');
         await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
         chatEl.removeChild(typing);
-        // Switch image to highlighted version when answering overview
+        // Switch image to highlighted version when answering red spikes question
         if (paImage) paImage.src = 'assets/pa_example_highlighted.png';
         const wrap = document.createElement('div');
         wrap.className = 'row assistant';
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         const img = document.createElement('img');
-        img.src = 'assets/ai_icon.png';
+        img.src = 'assets/yugabyte_icon.jpg';
         img.alt = 'AI';
         img.className = 'avatar-img';
         avatar.appendChild(img);
@@ -270,39 +271,7 @@ async function playStep(step) {
         const bubble = document.createElement('div');
         bubble.className = 'bubble';
         bubble.innerHTML = `
-          <div class="report">
-            <div class="section-title">Issues Found</div>
-            <div class="summary-row">
-              <span class="pill imp">1 Important</span>
-              <span class="pill min">3 Minor</span>
-            </div>
-            <div class="section-title">Top Findings</div>
-            <div class="block-imp">
-              <div class="mini-title">Important — Locking Issues</div>
-              <div>The following query spends over 50% of its time waiting for locks and is responsible for the majority of total lock wait time on the cluster:</div>
-              <div>The following query spends over 50% of its time waiting for locks and is responsible for the majority of total lock wait time on the cluster:</div>
-              <pre><code>INSERT INTO test_table (k, v, t)
-SELECT max(k) + $1 AS k, max(v) + $2 AS v, now() AS t
-FROM test_table;</code></pre>
-            </div>
-            <div class="block-min">
-              <div class="mini-title">Minor - CPU optimization</div>
-              <div>The query is responsible for half of all CPU time, yet total OS CPU utilization remains low, under 30%.</div>
-              <div><code>SELECT sum(A.id) FROM A JOIN B ON A.category = B.filter_category</code></div>
-            </div>
-            <div class="block-min"><div class="mini-title">Minor - Catalog Reads</div>Several statements hit the catalog read anomaly but they are DDL, so of little concern.</div>
-            <div class="block-min"><div class="mini-title">Minor - Hot Tablet</div>There is one hot tablet but total activity on this table represents less 5% of all cluster activity.</div>
-            <div class="section-title">Next Steps</div>
-            <div class="block-imp">
-              <div><strong>Issue Detected:</strong> Lock Contention</div>
-              <div>Locking is the primary performance bottleneck in your cluster, representing the majority of time spent running queries. The contention area is highlighted in the Cluster Load chart to the left on the Perf Advisor dashboard.</div>
-              <div><strong>Solution:</strong> Commit immediately after the insert, as the current insert is part of a transaction that delays the commit. Committing immediately after the insert reduces lock wait time. Expected improvement: reduce query latency by about 50%.</div>
-              <div class="mini-title">Insert statement</div>
-              <pre><code>INSERT INTO test_table (k, v, t)
-SELECT max(k) + $1 AS k, max(v) + $2 AS v, now() AS t
-FROM test_table;</code></pre>
-            </div>
-          </div>`;
+          <div class=\"report\">\n            <div class=\"section-title\">Important — Locking Issues</div>\n            <div>The red spikes are <strong>locking contention</strong>.</div>\n            <div>The following query spends over 50% of its time waiting for locks and is responsible for the majority of total lock wait time on the cluster:</div>\n            <pre><code>INSERT INTO test_table (k, v, t)\nSELECT max(k) + $1 AS k, max(v) + $2 AS v, now() AS t\nFROM test_table;</code></pre>\n            <div class=\"block-imp\">\n              <div class=\"mini-title\">Solution</div>\n              <div>Commit immediately after the insert, as the current insert is part of a transaction that delays the commit. Committing immediately after the insert reduces lock wait time. Expected improvement: reduce query latency by about 50%.</div>\n            </div>\n          </div>`;
         const meta = document.createElement('div');
         meta.className = 'meta';
         meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -317,14 +286,14 @@ FROM test_table;</code></pre>
         const typing = renderTyping('assistant');
         await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
         chatEl.removeChild(typing);
-        // Switch image to anomalies view when answering anomalies question
+        // Switch to anomalies console image for minor issues summary
         if (paImage) paImage.src = 'assets/pa_example_anomalies.png';
         const wrap = document.createElement('div');
         wrap.className = 'row assistant';
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
         const img = document.createElement('img');
-        img.src = 'assets/ai_icon.png';
+        img.src = 'assets/yugabyte_icon.jpg';
         img.alt = 'AI';
         img.className = 'avatar-img';
         avatar.appendChild(img);
@@ -334,27 +303,32 @@ FROM test_table;</code></pre>
         bubble.className = 'bubble';
         bubble.innerHTML = `
           <div class="report">
-            <div class="section-title">Anomalies Summary</div>
-            <div>Yes — there were <strong>two anomalies</strong> during this period.</div>
-            <div class="block-imp">
-              <div class="mini-title">Lock Contention (Primary)</div>
-              <div class="pa-subtle">Affected query</div>
-              <pre><code>insert into test_table (k, v, t)
-select max(k) + $1 as k, max(v) + $2 as v, now() as t
-from test_table</code></pre>
-              <ul style="margin: 6px 0 0 18px;">
-                <li>Responsible for <strong>over 50% of lock wait time</strong>.</li>
-                <li><strong>Resolution:</strong> commit immediately after the insert to release the lock sooner.</li>
-              </ul>
-            </div>
+            <div class="section-title">Minor Issues</div>
+            <div>There are <strong>3 other minor issues</strong></div>
+
             <div class="block-min">
-              <div class="mini-title">Catalog Read waits (Secondary)</div>
-              <ul style="margin: 6px 0 0 18px;">
-                <li><strong>Over 50% of processing time</strong> for a handful of one‑off DDL statements.</li>
-                <li>Impact is low since these are infrequent. If they are run often, pre‑cache table metadata with <code>ysql_catalog_preload_additional_table_list</code>.</li>
-              </ul>
+              <div class="mini-title">1) CPU</div>
+              <pre><code>SELECT sum(A.id) FROM A JOIN B ON A.category = B.filter_category</code></pre>
+              <div>Represents <strong>over 50% of CPU time</strong> for the period on the cluster,</div>
+              <div>Overall OS CPU utilization remains <strong>under 30%</strong>, so system-wide CPU is not a concern.</div>
+            </div>
+
+            <div class="block-min">
+              <div class="mini-title">2) Catalog Read</div>
+              <div>The following DDL queries spend more than 50% of time on catalog read.</div>
+              <pre><code>CREATE TABLE test_table(k i...
+DROP TABLE IF EXISTS test.i...
+DROP TABLE IF EXISTS test.t...
+TRUNCATE pgbench_history;</code></pre>
+              <div>Catalog read waits come from loading meta data needed to execute the query.</div>
               <div>Catalog read waits can be avoided by pre-caching the table metadata with the gflag:</div>
-              <pre><code>ysql_catalog_preload_additional_table_list="test_table, test,pgbench_history"</code></pre>
+              <pre><code>ysql_catalog_preload_additional_table_list="test_table, test,pgbench_histoy"</code></pre>
+              <div>Several statements hit the catalog read anomaly but they are DDL, so of little concern.</div>
+            </div>
+
+            <div class="block-min">
+              <div class="mini-title">3) Hot Tablet</div>
+              <div>There is one hot tablet but total activity on this table represents less 5% of all cluster activity</div>
             </div>
           </div>`;
         const meta = document.createElement('div');
@@ -371,70 +345,17 @@ from test_table</code></pre>
         const typing = renderTyping('assistant');
         await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
         chatEl.removeChild(typing);
-        // Switch image to queries view when discussing top queries
-        if (paImage) paImage.src = 'assets/pa_example_queries.png';
-        const wrap = document.createElement('div');
-        wrap.className = 'row assistant';
-        const avatar = document.createElement('div');
-        avatar.className = 'avatar';
-        const img = document.createElement('img');
-        img.src = 'assets/yugabyte_icon.jpg';
-        img.alt = 'AI';
-        img.className = 'avatar-img';
-        avatar.appendChild(img);
-        const col = document.createElement('div');
-        col.style.maxWidth = 'min(75ch, 100%)';
-        const bubble = document.createElement('div');
-        bubble.className = 'bubble';
-        bubble.innerHTML = `
-          <div class="report">
-            <div class="section-title">Top Queries</div>
-            <div>Top queries are listed below by total execution time. Look at the <strong>Queries</strong> tab below the Cluster Load chart to the left.</div>
-
-            <div class="block-imp">
-              <div class="mini-title">Locking — INSERT into test_table</div>
-              <pre><code>insert into test_table (k, v, t)
-select max(k) + $1 as k, max(v) + $2 as v, now() as t
-from test_table</code></pre>
-              <ul style="margin: 6px 0 0 18px;">
-                <li>The majority of active cluster load was spent waiting for locks. This statement is responsible the majority of lock wait time and spends over 50% of its execution time waiting for locks.</li>
-                <li><strong>Resolution:</strong> commit immediately after the insert.</li>
-              </ul>
-            </div>
-
-            <div class="block-min">
-              <div class="mini-title">CPU — SELECT sum(A.id) ...</div>
-              <pre><code>SELECT sum(A.id) FROM A JOIN B ON A.category = B.filter_category</code></pre>
-              <ul style="margin: 6px 0 0 18px;">
-                <li>Represents <strong>over 50% of CPU time</strong> for the period.</li>
-                <li>Overall OS CPU utilization remains <strong>under 30%</strong>, so system-wide CPU is not a concern.</li>
-              </ul>
-            </div>
-            <div class="block-min">
-              <div class="mini-title">Catalog Read</div>
-              <div>The following DDL queries spend more than 50% of time on catalog read</div>
-              <pre><code>CREATE TABLE test_table(k i...
-DROP TABLE IF EXISTS test.i...
-DROP TABLE IF EXISTS test.t...
-TRUNCATE pgbench_history;</code></pre>
-              <div>Catalog read waits can be avoided by pre-caching the table metadata with the gflag:</div>
-              <pre><code>ysql_catalog_preload_additional_table_list="test_table, test,pgbench_histoy"</code></pre>
-            </div>
-          </div>`;
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        meta.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        col.appendChild(bubble);
-        col.appendChild(meta);
-        wrap.appendChild(avatar);
-        wrap.appendChild(col);
-        chatEl.appendChild(wrap);
-        nodesForThisStep.push(wrap);
+        // Keep image as-is; this step is just a lead-in to the optimization details
+        const node = createRow('assistant', msg.text);
+        chatEl.appendChild(node);
+        nodesForThisStep.push(node);
         scrollToBottom();
       } else if (step === conversationSteps[4]) {
         const typing = renderTyping('assistant');
         await new Promise(r => setTimeout(r, Math.min(4000, 1200 + (msg.text.length * 28))));
         chatEl.removeChild(typing);
+        // Switch image to queries dashboard when discussing tuning/optimization
+        if (paImage) paImage.src = 'assets/pa_example_queries.png';
         const wrap = document.createElement('div');
         wrap.className = 'row assistant';
         const avatar = document.createElement('div');
@@ -461,11 +382,13 @@ LIMIT $4</code></pre>
             <div class="section-title">Explanation</div>
             <div>The query performs a sequential scan on the <code>pgbench_accounts</code> table because there is no suitable index to satisfy the range condition <code>aid BETWEEN $1 AND $2 + $3</code>. In YugabyteDB, primary keys are HASH partitioned by default. A HASH index is efficient for point lookups (e.g., <code>WHERE aid = ?</code>) but does not store data in a sorted order. Consequently, to find all rows where <code>aid BETWEEN $1 AND $2 + $3</code>, the database must scan all rows and apply the filter, which is inefficient.</div>
 
-            <div class="section-title">Recommended Index Strategy</div>
-            <div>Since the primary key is <code>aid</code>, you have two options to resolve the sequential scan:</div>
+            <div class="callout-yellow">
+              <div class="solutions-title"><strong>Solutions:</strong></div>
+              <div>There are two solutions, one to add a secondary index or two recreate the table using range tablet partitioning.</div>
+            </div>
             <div class="block-min">
               <div class="mini-title">1) Recommended — Create a secondary RANGE index</div>
-              <div>This is often the safest option as it does not change the table's primary key partitioning, preserving distribution for writes and point-reads on the primary key. This new index will be used to optimize range queries on <code>aid</code>.</div>
+              <div>This is the easiest optimization option as it does not change the table's primary key partitioning, preserving distribution for writes and point-reads on the primary key. This new index will be used to optimize range queries on <code>aid</code>.</div>
               <pre><code>CREATE INDEX pgbench_accounts_aid_idx ON pgbench_accounts (aid ASC);</code></pre>
             </div>
             <div class="block-min">
@@ -536,8 +459,7 @@ function reset() {
 }
 
 function updateButtons() {
-  btnPrev.disabled = history.length === 0;
-  btnNext.disabled = currentStepIndex >= conversationSteps.length - 1;
+  // no header controls any more
 }
 
 // Keyboard shortcuts
@@ -550,9 +472,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key.toLowerCase() === 'r') { e.preventDefault(); reset(); }
 });
 
-btnNext.addEventListener('click', next);
-btnPrev.addEventListener('click', prev);
-btnReset.addEventListener('click', reset);
+// header controls removed; navigation via keyboard or composer only
 
 // Start with the first step rendered to show how it looks
 next();
@@ -764,5 +684,23 @@ function syncChatHeightToLeft() {
 }
 
 window.addEventListener('resize', syncChatHeightToLeft);
+
+// Ask AI button toggles chat panel visibility
+if (btnAskAI) {
+  btnAskAI.addEventListener('click', () => {
+    if (!chatPanel) return;
+    const isHidden = chatPanel.classList.contains('hidden');
+    if (isHidden) {
+      chatPanel.classList.remove('hidden');
+      layout && layout.classList.remove('one-column');
+      btnAskAI.textContent = 'Close AI';
+      syncChatHeightToLeft();
+    } else {
+      chatPanel.classList.add('hidden');
+      layout && layout.classList.add('one-column');
+      btnAskAI.textContent = 'Ask AI';
+    }
+  });
+}
 
 
